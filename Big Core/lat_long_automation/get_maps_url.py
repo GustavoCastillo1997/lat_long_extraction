@@ -11,8 +11,11 @@ def get_maps_url(link_url: str, headers) -> str:
     return response.url
 
 
-def get_maps_url_retry(link_url: str, headers, attempt: int, max_attempts: int) -> str:
-    while attempt < max_attempts:
+def get_maps_url_retry(link_url: str, headers) -> str:
+    attempt = 1
+    max_attempt = 3
+
+    while attempt < max_attempt:
         logging.info('Formato da URL nao reconhecido!')
         logging.info(f'Realizando {attempt + 1}ª tentativa.')
         data = get_maps_url(link_url, headers=headers)

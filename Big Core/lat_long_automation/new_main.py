@@ -1,9 +1,9 @@
 import pandas as pd
 import logging
-from get_maps_url import get_maps_url, get_maps_url_retry
+from get_maps_url import get_maps_url
 from user_agents import get_random_user_agent
-from lat_long_extraction import lat_long_extract_1, lat_long_extract_2, lat_long_extract_3
 from datetime import datetime
+from verificator import string_type_verification, string_type_verification_reprocess
 
 
 start_time = datetime.now()
@@ -29,30 +29,10 @@ for index, link in enumerate(links):
     else:
         data = get_maps_url(link, headers)
         try:
-            if '@' in data:
-                lat_long_list.append(lat_long_extract_1(data))
+            if string_type_verification(data, link, headers, lat_long_list) == 'success':
                 success_counter += 1
-            elif 'sorry' in data:
-                lat_long_list.append(lat_long_extract_3(data))
-                success_counter += 1
-            elif 'goo.gl' in data:
-                attempt = 1
-                max_attempts = 3
-
-                data = get_maps_url_retry(link, headers, attempt, max_attempts)
-                if isinstance(data, str):
-                    if 'goo.gl' in data:
-                        lat_long_list.append(1)
-                        fail_counter += 1
-                        logging.info('Não foi possível obter uma URL válida, passando para próxima linha.')
-                    # else:
-                else:
-                    lat_long_list.append(1)
-                    fail_counter += 1
-                    logging.info('Não foi possível obter uma URL válida, passando para próxima linha.')
             else:
-                lat_long_list.append(lat_long_extract_2(data))
-                success_counter += 1
+                fail_counter += 1
         except IndexError:
             print(f'URL problemática: {data}')
             fail_counter += 1
@@ -60,60 +40,44 @@ for index, link in enumerate(links):
 
 logging.info('Processo finalizado!')
 
+first_processing_success = success_counter
+first_processing_fails = fail_counter
 
 print(f'Linha(s) com sucesso: {success_counter}\n')
 print(f'Linha(s) com falha(s): {fail_counter}\n')
-print(len(lat_long_list))
+print(f'Tamanho da lista gerada: {len(lat_long_list)}\n')
+
+
+success_counter = 0
 
 if 1 in lat_long_list:
-    logging.info('\n\nReprocessando links problemáticos...')
-    logging.info('\n\nZerando contadores de status...\n\n')
+    for attempt_at_reprocessing in range(1, 3, 1):
 
-    success_counter = 0
-    fail_counter = 0
+        logging.info(f'\n\n***Tentativa de reprocessamento número {attempt_at_reprocessing}:***\n\n')
+        logging.info('Reprocessando links problemáticos...\n')
 
-    for index, item in enumerate(lat_long_list):
+        for index, item in enumerate(lat_long_list):
 
-        headers = {'User-Agent': get_random_user_agent()}
+            headers = {'User-Agent': get_random_user_agent()}
 
-        if item == 1:
-            data = get_maps_url(links[index], headers)
-            try:
-                if '@' in data:
-                    lat_long_list[index] = lat_long_extract_1(data)
-                    success_counter += 1
-                elif 'sorry' in data:
-                    lat_long_list[index] = lat_long_extract_3(data)
-                    success_counter += 1
-                elif 'goo.gl' in data:
-                    attempt = 1
-                    max_attempts = 3
+            if item == 1:
+                data = get_maps_url(links[index], headers)
+                try:
+                    if string_type_verification_reprocess(data, links, index, headers, lat_long_list) == 'success':
+                        success_counter += 1
+                except IndexError:
+                    print(f'URL problemática: {data}')
+                logging.info(f'Linha número {index + 1} reprocessada!')
+            else:
+                pass
 
-                    data = get_maps_url_retry(links[index], headers, attempt, max_attempts)
-                    if isinstance(data, str):
-                        if 'goo.gl' in data:
-                            lat_long_list[index] = 1
-                            fail_counter += 1
-                            logging.info('Não foi possível obter uma URL válida, passando para próxima linha.')
-                        # else:
-                    else:
-                        lat_long_list[index] = 1
-                        fail_counter += 1
-                        logging.info('Não foi possível obter uma URL válida, passando para próxima linha.')
-                else:
-                    lat_long_list[index] = lat_long_extract_2(data)
-                    success_counter += 1
-            except IndexError:
-                print(f'URL problemática: {data}')
-                fail_counter += 1
-            logging.info(f'Linha número {index + 1} reprocessada!')
-        else:
-            pass
 
+print(f'Linha(s) com sucesso após reprocessamento: {success_counter}\n')
+
+print(f'Resultante de linhas com sucesso: {first_processing_success + success_counter}')
+print(f'Resultante de linhas com falhas: `{first_processing_fails - success_counter}')
 
 print(lat_long_list)
 
 end_time = datetime.now()
 print(f'Tempo de execução: {end_time - start_time}\n')
-print(f'Linha(s) com sucesso: {success_counter}\n')
-print(f'Linha(s) com falha(s): {fail_counter}\n')
